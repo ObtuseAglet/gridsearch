@@ -68,8 +68,8 @@ export default function Cell({
   };
 
   const getCellClassName = () => {
-    const base = "w-32 h-10 border border-gray-300 relative";
-    if (isSelected) return `${base} ring-2 ring-blue-500 z-10`;
+    const base = "w-[100px] min-w-[100px] h-[21px] min-h-[21px] border-r border-b border-gray-300 relative bg-white hover:bg-gray-50 flex-shrink-0";
+    if (isSelected) return `${base} outline outline-2 outline-blue-600 -outline-offset-1 z-10 bg-white`;
     return base;
   };
 
@@ -83,10 +83,10 @@ export default function Cell({
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className="w-full h-full px-2 py-1 text-sm outline-none"
+          className="w-full h-full px-1.5 py-0.5 text-xs outline-none"
         />
       ) : (
-        <div className="w-full h-full px-2 py-1 text-sm overflow-hidden text-ellipsis whitespace-nowrap flex items-center">
+        <div className="w-full h-full px-1.5 py-0.5 text-xs overflow-hidden text-ellipsis whitespace-nowrap flex items-center">
           {isLoading ? (
             <span className="text-gray-500 italic">Searching...</span>
           ) : (
