@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import Cell from "./Cell";
 import ContentViewer from "./ContentViewer";
+import FormulaBar from "./FormulaBar";
 
 const ROWS = 20;
 const COLS = 10;
@@ -105,61 +106,81 @@ export default function Grid() {
     return label;
   };
 
+  const getSelectedCellLabel = () => {
+    if (!selectedCell) return "";
+    const [row, col] = selectedCell.split("-").map(Number);
+    return `${getColumnLabel(col)}${row + 1}`;
+  };
+
+  const handleFormulaBarChange = useCallback((value: string) => {
+    if (selectedCell) {
+      const [row, col] = selectedCell.split("-").map(Number);
+      handleCellChange(row, col, value);
+    }
+  }, [selectedCell, handleCellChange]);
+
   return (
-    <div className="flex h-[calc(100vh-80px)]">
-      <div className="flex-1 overflow-auto">
-        <div className="inline-block min-w-full">
-          {/* Column headers */}
-          <div className="flex sticky top-0 bg-gray-100 z-10">
-            <div className="w-12 h-8 border border-gray-300 bg-gray-200 flex items-center justify-center text-xs font-semibold"></div>
-            {Array.from({ length: COLS }, (_, col) => (
-              <div
-                key={col}
-                className="w-32 h-8 border border-gray-300 bg-gray-200 flex items-center justify-center text-xs font-semibold"
-              >
-                {getColumnLabel(col)}
+    <div className="flex flex-col flex-1 overflow-hidden">
+      <FormulaBar 
+        selectedCell={getSelectedCellLabel()}
+        cellValue={selectedCell ? cells[selectedCell]?.value || "" : ""}
+        onValueChange={handleFormulaBarChange}
+      />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto bg-white">
+          <div className="inline-block min-w-full">
+            {/* Column headers */}
+            <div className="flex sticky top-0 bg-gray-50 z-10">
+              <div className="w-12 h-7 border-r border-b border-gray-300 flex items-center justify-center text-xs font-medium text-gray-600"></div>
+              {Array.from({ length: COLS }, (_, col) => (
+                <div
+                  key={col}
+                  className="w-[100px] h-7 border-r border-b border-gray-300 flex items-center justify-center text-xs font-medium text-gray-700 bg-gray-50"
+                >
+                  {getColumnLabel(col)}
+                </div>
+              ))}
+            </div>
+
+            {/* Grid rows */}
+            {Array.from({ length: ROWS }, (_, row) => (
+              <div key={row} className="flex">
+                {/* Row header */}
+                <div className="w-12 h-[21px] border-r border-b border-gray-300 bg-gray-50 flex items-center justify-center text-xs font-medium text-gray-600">
+                  {row + 1}
+                </div>
+                {/* Cells */}
+                {Array.from({ length: COLS }, (_, col) => {
+                  const key = getCellKey(row, col);
+                  const cellData = cells[key];
+                  const isSelected = selectedCell === key;
+                  const isLoading = loading[key];
+
+                  return (
+                    <Cell
+                      key={key}
+                      row={row}
+                      col={col}
+                      value={cellData?.value || ""}
+                      isSelected={isSelected}
+                      isLoading={isLoading}
+                      isSearchQuery={cellData?.isSearchQuery || false}
+                      onChange={handleCellChange}
+                      onSelect={handleCellSelect}
+                    />
+                  );
+                })}
               </div>
             ))}
           </div>
-
-          {/* Grid rows */}
-          {Array.from({ length: ROWS }, (_, row) => (
-            <div key={row} className="flex">
-              {/* Row header */}
-              <div className="w-12 h-10 border border-gray-300 bg-gray-200 flex items-center justify-center text-xs font-semibold">
-                {row + 1}
-              </div>
-              {/* Cells */}
-              {Array.from({ length: COLS }, (_, col) => {
-                const key = getCellKey(row, col);
-                const cellData = cells[key];
-                const isSelected = selectedCell === key;
-                const isLoading = loading[key];
-
-                return (
-                  <Cell
-                    key={key}
-                    row={row}
-                    col={col}
-                    value={cellData?.value || ""}
-                    isSelected={isSelected}
-                    isLoading={isLoading}
-                    isSearchQuery={cellData?.isSearchQuery || false}
-                    onChange={handleCellChange}
-                    onSelect={handleCellSelect}
-                  />
-                );
-              })}
-            </div>
-          ))}
         </div>
-      </div>
 
-      {/* Content viewer panel */}
-      <ContentViewer
-        searchResult={selectedCell ? searchResults[selectedCell] : null}
-        isVisible={!!selectedCell && !!searchResults[selectedCell]}
-      />
+        {/* Content viewer panel */}
+        <ContentViewer
+          searchResult={selectedCell ? searchResults[selectedCell] : null}
+          isVisible={!!selectedCell && !!searchResults[selectedCell]}
+        />
+      </div>
     </div>
   );
 }
