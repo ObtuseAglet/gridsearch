@@ -68,7 +68,7 @@ export default function Cell({
   };
 
   const getCellClassName = () => {
-    const base = "w-[100px] h-[21px] border-r border-b border-gray-300 relative bg-white hover:bg-gray-50";
+    const base = "w-[100px] min-w-[100px] h-[21px] min-h-[21px] border-r border-b border-gray-300 relative bg-white hover:bg-gray-50 flex-shrink-0";
     if (isSelected) return `${base} outline outline-2 outline-blue-600 -outline-offset-1 z-10 bg-white`;
     return base;
   };

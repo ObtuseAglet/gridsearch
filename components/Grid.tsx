@@ -131,11 +131,11 @@ export default function Grid() {
           <div className="inline-block min-w-full">
             {/* Column headers */}
             <div className="flex sticky top-0 bg-[#f8f9fa] z-10 border-t border-l border-gray-300">
-              <div className="w-12 h-7 border-r border-b border-gray-300 flex items-center justify-center text-xs font-medium text-gray-600 bg-[#f8f9fa]"></div>
+              <div className="w-12 min-w-[48px] h-[21px] border-r border-b border-gray-300 flex items-center justify-center text-xs font-medium text-gray-600 bg-[#f8f9fa] flex-shrink-0"></div>
               {Array.from({ length: COLS }, (_, col) => (
                 <div
                   key={col}
-                  className="w-[100px] h-7 border-r border-b border-gray-300 flex items-center justify-center text-xs font-medium text-gray-700 bg-[#f8f9fa]"
+                  className="w-[100px] min-w-[100px] h-[21px] border-r border-b border-gray-300 flex items-center justify-center text-xs font-medium text-gray-700 bg-[#f8f9fa] flex-shrink-0"
                 >
                   {getColumnLabel(col)}
                 </div>
@@ -146,7 +146,7 @@ export default function Grid() {
             {Array.from({ length: ROWS }, (_, row) => (
               <div key={row} className="flex border-l border-gray-300">
                 {/* Row header */}
-                <div className="w-12 h-[21px] border-r border-b border-gray-300 bg-[#f8f9fa] flex items-center justify-center text-xs font-medium text-gray-600">
+                <div className="w-12 min-w-[48px] h-[21px] min-h-[21px] border-r border-b border-gray-300 bg-[#f8f9fa] flex items-center justify-center text-xs font-medium text-gray-600 flex-shrink-0">
                   {row + 1}
                 </div>
                 {/* Cells */}
