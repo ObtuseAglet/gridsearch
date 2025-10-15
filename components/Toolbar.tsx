@@ -4,7 +4,8 @@ export default function Toolbar() {
   return (
     <div className="bg-white border-b border-gray-300">
       {/* Menu bar */}
-      <div className="flex items-center px-3 py-1 text-sm">
+      <div className="flex items-center px-3 py-1.5 text-sm border-b border-gray-200">
+        <div className="font-semibold text-gray-800 mr-6">GridSearch</div>
         <button className="px-3 py-1 hover:bg-gray-100 rounded">File</button>
         <button className="px-3 py-1 hover:bg-gray-100 rounded">Edit</button>
         <button className="px-3 py-1 hover:bg-gray-100 rounded">View</button>

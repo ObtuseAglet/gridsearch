@@ -68,8 +68,8 @@ export default function Cell({
   };
 
   const getCellClassName = () => {
-    const base = "w-[100px] h-[21px] border-r border-b border-gray-300 relative bg-white";
-    if (isSelected) return `${base} ring-2 ring-blue-500 ring-inset z-10`;
+    const base = "w-[100px] h-[21px] border-r border-b border-gray-300 relative bg-white hover:bg-gray-50";
+    if (isSelected) return `${base} outline outline-2 outline-blue-600 -outline-offset-1 z-10 bg-white`;
     return base;
   };
 
