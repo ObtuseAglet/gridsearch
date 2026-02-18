@@ -50,7 +50,6 @@ export default function ContentViewer({
             <div className="grid grid-cols-1 gap-4">
               {searchResult.images.slice(0, 5).map((src, idx) => (
                 <div key={src} className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={src}
                     alt={`${searchResult.title} - preview ${idx + 1}`}
