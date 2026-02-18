@@ -1,8 +1,8 @@
 "use client";
 
 import Grid from "@/components/Grid";
-import Toolbar from "@/components/Toolbar";
 import StatusBar from "@/components/StatusBar";
+import Toolbar from "@/components/Toolbar";
 
 export default function Home() {
   return (

@@ -6,7 +6,11 @@ interface FormulaBarProps {
   onValueChange: (value: string) => void;
 }
 
-export default function FormulaBar({ selectedCell, cellValue, onValueChange }: FormulaBarProps) {
+export default function FormulaBar({
+  selectedCell,
+  cellValue,
+  onValueChange,
+}: FormulaBarProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onValueChange(e.target.value);
   };

@@ -12,7 +12,10 @@ interface ContentViewerProps {
   isVisible: boolean;
 }
 
-export default function ContentViewer({ searchResult, isVisible }: ContentViewerProps) {
+export default function ContentViewer({
+  searchResult,
+  isVisible,
+}: ContentViewerProps) {
   if (!isVisible || !searchResult) {
     return null;
   }
@@ -26,7 +29,9 @@ export default function ContentViewer({ searchResult, isVisible }: ContentViewer
 
       <div className="p-6">
         {/* Title */}
-        <h1 className="text-2xl font-bold mb-2 text-gray-900">{searchResult.title}</h1>
+        <h1 className="text-2xl font-bold mb-2 text-gray-900">
+          {searchResult.title}
+        </h1>
 
         {/* URL */}
         <a
@@ -43,11 +48,12 @@ export default function ContentViewer({ searchResult, isVisible }: ContentViewer
           <div className="mb-6">
             <h3 className="text-lg font-semibold mb-3 text-gray-800">Images</h3>
             <div className="grid grid-cols-1 gap-4">
-              {searchResult.images.slice(0, 5).map((image, idx) => (
-                <div key={idx} className="relative">
+              {searchResult.images.slice(0, 5).map((src, idx) => (
+                <div key={src} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={image}
-                    alt={`${searchResult.title} - Image ${idx + 1}`}
+                    src={src}
+                    alt={`${searchResult.title} - preview ${idx + 1}`}
                     className="w-full h-auto rounded-lg shadow-md"
                     loading="lazy"
                     onError={(e) => {

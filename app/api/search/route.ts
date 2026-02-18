@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 // Demo data for various search queries
 const demoResults: Record<string, any> = {
-  "nextjs": {
+  nextjs: {
     url: "https://nextjs.org/docs",
     title: "Next.js Documentation - The React Framework",
     content: `Next.js is a React framework that gives you building blocks to create web applications. By framework, we mean Next.js handles the tooling and configuration needed for React, and provides additional structure, features, and optimizations for your application.
@@ -24,7 +24,7 @@ The framework is built on top of React and extends it with powerful features lik
       "https://nextjs.org/static/twitter-cards/home.jpg",
     ],
   },
-  "react": {
+  react: {
     url: "https://react.dev",
     title: "React - A JavaScript Library for Building User Interfaces",
     content: `React is a JavaScript library for building user interfaces. It is maintained by Facebook and a community of individual developers and companies.
@@ -46,7 +46,7 @@ Build encapsulated components that manage their own state, then compose them to 
       "https://react.dev/images/home/react-logo.svg",
     ],
   },
-  "default": {
+  default: {
     url: "https://example.com/search-result",
     title: "Search Results for Your Query",
     content: `This is a demonstration of the GridSearch application. In a production environment, this would fetch real search results from a search engine API.
@@ -85,18 +85,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Simulate network delay for realistic behavior
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Normalize query for matching
     const normalizedQuery = query.toLowerCase().trim();
-    
+
     // Find matching demo result or use default
-    let result = demoResults["default"];
-    
-    if (normalizedQuery.includes("next") || normalizedQuery.includes("nextjs")) {
-      result = demoResults["nextjs"];
+    let result = demoResults.default;
+
+    if (
+      normalizedQuery.includes("next") ||
+      normalizedQuery.includes("nextjs")
+    ) {
+      result = demoResults.nextjs;
     } else if (normalizedQuery.includes("react")) {
-      result = demoResults["react"];
+      result = demoResults.react;
     }
 
     return NextResponse.json(result);

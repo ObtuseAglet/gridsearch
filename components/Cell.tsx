@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 interface CellProps {
   row: number;
@@ -46,6 +46,13 @@ export default function Cell({
     setIsEditing(true);
   };
 
+  const handleCellKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setIsEditing(true);
+    }
+  };
+
   const handleBlur = () => {
     if (isEditing) {
       setIsEditing(false);
@@ -55,7 +62,7 @@ export default function Cell({
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       setIsEditing(false);
       if (editValue !== value) {
@@ -68,13 +75,22 @@ export default function Cell({
   };
 
   const getCellClassName = () => {
-    const base = "w-[100px] min-w-[100px] h-[21px] min-h-[21px] border-r border-b border-gray-300 relative bg-white hover:bg-gray-50 flex-shrink-0";
-    if (isSelected) return `${base} outline outline-2 outline-blue-600 -outline-offset-1 z-10 bg-white`;
+    const base =
+      "w-[100px] min-w-[100px] h-[21px] min-h-[21px] border-r border-b border-gray-300 relative bg-white hover:bg-gray-50 flex-shrink-0";
+    if (isSelected)
+      return `${base} outline outline-2 outline-blue-600 -outline-offset-1 z-10 bg-white`;
     return base;
   };
 
   return (
-    <div className={getCellClassName()} onClick={handleClick} onDoubleClick={handleDoubleClick}>
+    <div
+      role="gridcell"
+      tabIndex={0}
+      className={getCellClassName()}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+      onKeyDown={handleCellKeyDown}
+    >
       {isEditing ? (
         <input
           ref={inputRef}
@@ -82,7 +98,7 @@ export default function Cell({
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleInputKeyDown}
           className="w-full h-full px-1.5 py-0.5 text-xs outline-none"
         />
       ) : (
@@ -96,7 +112,11 @@ export default function Cell({
                   🔍
                 </span>
               )}
-              <span className={isSearchQuery ? "text-blue-600 underline cursor-pointer" : ""}>
+              <span
+                className={
+                  isSearchQuery ? "text-blue-600 underline cursor-pointer" : ""
+                }
+              >
                 {value}
               </span>
             </>
