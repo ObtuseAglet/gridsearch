@@ -80,7 +80,9 @@ Add a `searxng` service to `docker-compose.yml`:
 ```yaml
 services:
   searxng:
-    image: searxng/searxng:latest
+    # Pin to a specific immutable tag; update deliberately when upgrading.
+    # Find available tags at: https://hub.docker.com/r/searxng/searxng/tags
+    image: searxng/searxng:2026.2.16-8e824017d
     ports:
       - "8080:8080"
     volumes:
