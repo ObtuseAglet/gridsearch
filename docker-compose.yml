@@ -1,4 +1,12 @@
 services:
+  searxng:
+    image: searxng/searxng:2026.2.16-8e824017d
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng
+    restart: unless-stopped
+
   gridsearch:
     build:
       context: .
@@ -7,6 +15,10 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - SEARCH_PROVIDER=searxng
+      - SEARXNG_BASE_URL=http://searxng:8080
+    depends_on:
+      - searxng
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
