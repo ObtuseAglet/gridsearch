@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     console.error("Search API error:", error);
     return NextResponse.json(
       { error: "Failed to fetch search results" },
-      { status: 502 }
+      { status: 500 }
     );
   }
 }

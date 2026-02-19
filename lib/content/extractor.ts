@@ -7,6 +7,7 @@ interface ExtractedContent {
 }
 
 const MAX_CONTENT_LENGTH = 20_000;
+const MAX_IMAGES = 20;
 
 const toAbsoluteUrl = (src: string, baseUrl: string) => {
   try {
@@ -59,7 +60,7 @@ export async function extractContentFromUrl(
     const images = Array.from(document.querySelectorAll("img[src]"))
       .map((img) => toAbsoluteUrl(img.getAttribute("src") ?? "", url))
       .filter((src): src is string => !!src)
-      .slice(0, 20);
+      .slice(0, MAX_IMAGES);
 
     return {
       content:
