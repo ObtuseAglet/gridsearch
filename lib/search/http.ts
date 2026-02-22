@@ -1,3 +1,6 @@
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_HTML_BYTES = 1_500_000;
 
@@ -25,7 +28,7 @@ const isPrivateIpv4 = (hostname: string) => {
 
   const parts = hostname.split(".").map((part) => Number(part));
   if (parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
-    return true;
+    return false;
   }
 
   const value = ipToInt(hostname);
@@ -34,8 +37,24 @@ const isPrivateIpv4 = (hostname: string) => {
   );
 };
 
-const isPrivateHostname = (hostname: string) => {
+const isPrivateHost = (hostname: string) => {
   const normalized = hostname.toLowerCase();
+  const ipVersion = isIP(normalized);
+
+  if (ipVersion === 4) {
+    return isPrivateIpv4(normalized);
+  }
+
+  if (ipVersion === 6) {
+    return (
+      normalized === "::1" ||
+      normalized === "::" ||
+      normalized.startsWith("fc") ||
+      normalized.startsWith("fd") ||
+      normalized.startsWith("fe80")
+    );
+  }
+
   if (
     normalized === "localhost" ||
     normalized.endsWith(".localhost") ||
@@ -44,26 +63,36 @@ const isPrivateHostname = (hostname: string) => {
     return true;
   }
 
-  if (normalized.includes(":")) {
-    return (
-      normalized === "::1" ||
-      normalized.startsWith("fc") ||
-      normalized.startsWith("fd") ||
-      normalized.startsWith("fe80")
-    );
-  }
-
   return isPrivateIpv4(normalized);
 };
 
-export const isPublicHttpUrl = (input: string) => {
+export const isPublicHttpUrl = async (input: string) => {
   try {
     const parsed = new URL(input);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return false;
     }
 
-    return !isPrivateHostname(parsed.hostname);
+    if (parsed.username || parsed.password) {
+      return false;
+    }
+
+    if (isPrivateHost(parsed.hostname)) {
+      return false;
+    }
+
+    const isIpHost =
+      isIP(parsed.hostname) !== 0 ||
+      /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname);
+    if (isIpHost) {
+      return true;
+    }
+
+    const addresses = await lookup(parsed.hostname, {
+      all: true,
+      verbatim: true,
+    });
+    return addresses.every((address) => !isPrivateHost(address.address));
   } catch {
     return false;
   }

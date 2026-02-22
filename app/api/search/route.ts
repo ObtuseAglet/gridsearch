@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { type NextRequest, NextResponse } from "next/server";
 import { BraveSearchProvider } from "@/lib/search/brave";
 import { DuckSearchProvider } from "@/lib/search/duck";
@@ -22,6 +23,7 @@ const providerFactories: Record<string, () => SearchProvider> = {
   duck: () => new DuckSearchProvider(),
 };
 const providerInstances = new Map<string, SearchProvider>();
+const isValidIp = (value: string) => isIP(value) !== 0;
 
 const getProvider = (): SearchProvider => {
   const providerName = process.env.SEARCH_PROVIDER?.toLowerCase() ?? "duck";
@@ -46,26 +48,31 @@ const getClientIp = (request: NextRequest) => {
     const parts = forwarded
       .split(",")
       .map((part) => part.trim())
-      .filter(Boolean);
+      .filter((part) => part !== "");
     if (parts.length > 0) {
-      return parts[parts.length - 1];
+      const clientIp = parts[0];
+      if (isValidIp(clientIp)) {
+        return clientIp;
+      }
     }
   }
 
   const realIp = request.headers.get("x-real-ip");
-  if (realIp) {
+  if (realIp && isValidIp(realIp)) {
     return realIp;
   }
 
   const requestWithIp = request as NextRequest & { ip?: string | null };
-  if (requestWithIp.ip) return requestWithIp.ip;
+  if (requestWithIp.ip && isValidIp(requestWithIp.ip)) {
+    return requestWithIp.ip;
+  }
 
   return "unknown";
 };
 
 const cleanupExpiredRateLimitEntries = (now: number) => {
   for (const [ip, entry] of rateLimitStore) {
-    if (entry.resetAt <= now) {
+    if (entry.resetAt < now) {
       rateLimitStore.delete(ip);
     }
   }
@@ -83,9 +90,13 @@ const isRateLimited = (ip: string, limitPerMinute: number) => {
     return false;
   }
 
+  if (entry.count >= limitPerMinute) {
+    return true;
+  }
+
   entry.count += 1;
   rateLimitStore.set(ip, entry);
-  return entry.count > limitPerMinute;
+  return false;
 };
 
 export async function POST(request: NextRequest) {

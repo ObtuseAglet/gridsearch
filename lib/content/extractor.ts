@@ -26,9 +26,26 @@ export async function extractContentFromUrl(
   url: string
 ): Promise<ExtractedContent> {
   try {
-    if (!isPublicHttpUrl(url)) {
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
       return {
-        content: "Blocked unsupported or private URL.",
+        content: "Unsupported URL format.",
+        images: [],
+      };
+    }
+
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+      return {
+        content: "Unsupported URL format.",
+        images: [],
+      };
+    }
+
+    if (!(await isPublicHttpUrl(url))) {
+      return {
+        content: "Blocked private or internal URL.",
         images: [],
       };
     }
@@ -57,7 +74,7 @@ export async function extractContentFromUrl(
     }
 
     const html = await readHtmlWithLimit(response);
-    const dom = new JSDOM(html, { url, runScripts: "outside-only" });
+    const dom = new JSDOM(html, { url });
     const document = dom.window.document;
 
     for (const node of document.querySelectorAll(

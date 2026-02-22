@@ -14,12 +14,11 @@ interface DuckResponse {
   RelatedTopics?: DuckTopic[];
 }
 
+// Keep titles compact for the existing reader panel/cell UI.
 const TITLE_MAX_LENGTH = 120;
 
 const shortenTitle = (value: string) =>
-  value.length > TITLE_MAX_LENGTH
-    ? `${value.slice(0, TITLE_MAX_LENGTH - 1)}…`
-    : value;
+  value.length > TITLE_MAX_LENGTH ? value.slice(0, TITLE_MAX_LENGTH) : value;
 
 export class DuckSearchProvider implements SearchProvider {
   async search(query: string): Promise<SearchResult> {
