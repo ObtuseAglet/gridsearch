@@ -1,4 +1,5 @@
 import { extractContentFromUrl } from "@/lib/content/extractor";
+import { fetchWithTimeout } from "@/lib/search/http";
 import type { SearchProvider, SearchResult } from "@/lib/search/provider";
 
 interface BraveResultItem {
@@ -14,18 +15,23 @@ interface BraveResponse {
 }
 
 export class BraveSearchProvider implements SearchProvider {
-  async search(query: string): Promise<SearchResult> {
+  private readonly apiKey: string;
+
+  constructor() {
     const apiKey = process.env.BRAVE_API_KEY;
     if (!apiKey) {
       throw new Error("BRAVE_API_KEY is not configured");
     }
+    this.apiKey = apiKey;
+  }
 
-    const response = await fetch(
+  async search(query: string): Promise<SearchResult> {
+    const response = await fetchWithTimeout(
       `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}`,
       {
         headers: {
           Accept: "application/json",
-          "X-Subscription-Token": apiKey,
+          "X-Subscription-Token": this.apiKey,
         },
       }
     );

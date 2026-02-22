@@ -1,4 +1,5 @@
 import { extractContentFromUrl } from "@/lib/content/extractor";
+import { fetchWithTimeout } from "@/lib/search/http";
 import type { SearchProvider, SearchResult } from "@/lib/search/provider";
 
 interface SearXNGResultItem {
@@ -17,7 +18,7 @@ export class SearxngSearchProvider implements SearchProvider {
   ) {}
 
   async search(query: string): Promise<SearchResult> {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${this.baseUrl}/search?format=json&q=${encodeURIComponent(query)}`
     );
 

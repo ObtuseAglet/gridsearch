@@ -1,11 +1,17 @@
 services:
   searxng:
     image: searxng/searxng:2026.2.16-8e824017d
-    ports:
-      - "8080:8080"
     volumes:
       - ./searxng:/etc/searxng
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
 
   gridsearch:
     build:

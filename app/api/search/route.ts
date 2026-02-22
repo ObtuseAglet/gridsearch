@@ -6,50 +6,86 @@ import { SearxngSearchProvider } from "@/lib/search/searxng";
 
 export const runtime = "nodejs";
 
+/**
+ * In-memory rate limiting store.
+ *
+ * NOTE: This works best in single-instance Node.js deployments. In multi-instance
+ * or serverless environments, each instance has its own store.
+ */
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_CLEANUP_THRESHOLD = 1_000;
+
+const providerFactories: Record<string, () => SearchProvider> = {
+  searxng: () => new SearxngSearchProvider(),
+  brave: () => new BraveSearchProvider(),
+  duck: () => new DuckSearchProvider(),
+};
+const providerInstances = new Map<string, SearchProvider>();
 
 const getProvider = (): SearchProvider => {
   const providerName = process.env.SEARCH_PROVIDER?.toLowerCase() ?? "duck";
-
-  switch (providerName) {
-    case "searxng":
-      return new SearxngSearchProvider();
-    case "brave":
-      return new BraveSearchProvider();
-    case "duck":
-      return new DuckSearchProvider();
-    default:
-      throw new Error(
-        `Unsupported search provider "${providerName}". Expected "searxng", "brave", or "duck".`
-      );
+  const providerFactory = providerFactories[providerName];
+  if (!providerFactory) {
+    throw new Error(
+      `Unsupported search provider "${providerName}". Expected "searxng", "brave", or "duck".`
+    );
   }
+
+  const existingProvider = providerInstances.get(providerName);
+  if (existingProvider) return existingProvider;
+
+  const provider = providerFactory();
+  providerInstances.set(providerName, provider);
+  return provider;
 };
 
 const getClientIp = (request: NextRequest) => {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
-    return forwarded.split(",")[0].trim();
+    const parts = forwarded
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length > 0) {
+      return parts[parts.length - 1];
+    }
   }
+
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) {
+    return realIp;
+  }
+
+  const requestWithIp = request as NextRequest & { ip?: string | null };
+  if (requestWithIp.ip) return requestWithIp.ip;
 
   return "unknown";
 };
 
+const cleanupExpiredRateLimitEntries = (now: number) => {
+  for (const [ip, entry] of rateLimitStore) {
+    if (entry.resetAt <= now) {
+      rateLimitStore.delete(ip);
+    }
+  }
+};
+
 const isRateLimited = (ip: string, limitPerMinute: number) => {
   const now = Date.now();
-  const entry = rateLimitStore.get(ip);
-
-  if (!entry || entry.resetAt <= now) {
-    rateLimitStore.set(ip, { count: 1, resetAt: now + 60_000 });
-    return false;
+  if (rateLimitStore.size > RATE_LIMIT_CLEANUP_THRESHOLD) {
+    cleanupExpiredRateLimitEntries(now);
   }
 
-  if (entry.count >= limitPerMinute) {
-    return true;
+  const entry = rateLimitStore.get(ip);
+  if (!entry || entry.resetAt <= now) {
+    rateLimitStore.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
   }
 
   entry.count += 1;
   rateLimitStore.set(ip, entry);
-  return false;
+  return entry.count > limitPerMinute;
 };
 
 export async function POST(request: NextRequest) {

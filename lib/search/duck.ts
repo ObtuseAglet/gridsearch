@@ -1,4 +1,5 @@
 import { extractContentFromUrl } from "@/lib/content/extractor";
+import { fetchWithTimeout } from "@/lib/search/http";
 import type { SearchProvider, SearchResult } from "@/lib/search/provider";
 
 interface DuckTopic {
@@ -13,9 +14,16 @@ interface DuckResponse {
   RelatedTopics?: DuckTopic[];
 }
 
+const TITLE_MAX_LENGTH = 120;
+
+const shortenTitle = (value: string) =>
+  value.length > TITLE_MAX_LENGTH
+    ? `${value.slice(0, TITLE_MAX_LENGTH - 1)}…`
+    : value;
+
 export class DuckSearchProvider implements SearchProvider {
   async search(query: string): Promise<SearchResult> {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`
     );
 
@@ -26,7 +34,7 @@ export class DuckSearchProvider implements SearchProvider {
     const data = (await response.json()) as DuckResponse;
     const fallbackTopic = data.RelatedTopics?.find((topic) => topic.FirstURL);
     const url = data.AbstractURL || fallbackTopic?.FirstURL;
-    const title = data.Heading || fallbackTopic?.Text || query;
+    const title = shortenTitle(data.Heading || fallbackTopic?.Text || query);
 
     if (!url) {
       throw new Error("No search results found");
