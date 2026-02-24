@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import Cell from "./Cell";
 import ContentViewer from "./ContentViewer";
 import FormulaBar from "./FormulaBar";
@@ -29,6 +29,8 @@ export default function Grid() {
     [key: string]: SearchResult;
   }>({});
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
+  const [isEditingCell, setIsEditingCell] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const handleCellChange = useCallback(
     async (row: number, col: number, value: string) => {
@@ -107,6 +109,10 @@ export default function Grid() {
     setSelectedCell(getCellKey(row, col));
   }, []);
 
+  const handleEditingChange = useCallback((isEditing: boolean) => {
+    setIsEditingCell(isEditing);
+  }, []);
+
   const getColumnLabel = (col: number) => {
     let label = "";
     let num = col;
@@ -133,6 +139,103 @@ export default function Grid() {
     [selectedCell, handleCellChange]
   );
 
+  const handleGridKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      // Don't handle keyboard shortcuts if a cell is being edited
+      if (isEditingCell) return;
+
+      if (!selectedCell) return;
+
+      const [row, col] = selectedCell.split("-").map(Number);
+      let newRow = row;
+      let newCol = col;
+      let handled = false;
+
+      // Arrow key navigation
+      if (e.key === "ArrowUp") {
+        newRow = Math.max(0, row - 1);
+        handled = true;
+      } else if (e.key === "ArrowDown") {
+        newRow = Math.min(ROWS - 1, row + 1);
+        handled = true;
+      } else if (e.key === "ArrowLeft") {
+        newCol = Math.max(0, col - 1);
+        handled = true;
+      } else if (e.key === "ArrowRight") {
+        newCol = Math.min(COLS - 1, col + 1);
+        handled = true;
+      }
+      // Tab navigation
+      else if (e.key === "Tab") {
+        if (e.shiftKey) {
+          newCol = col > 0 ? col - 1 : col;
+        } else {
+          newCol = col < COLS - 1 ? col + 1 : col;
+        }
+        handled = true;
+      }
+      // Home/End navigation
+      else if (e.key === "Home") {
+        if (e.ctrlKey || e.metaKey) {
+          newRow = 0;
+          newCol = 0;
+        } else {
+          newCol = 0;
+        }
+        handled = true;
+      } else if (e.key === "End") {
+        if (e.ctrlKey || e.metaKey) {
+          // Find last used cell
+          const lastKey = Object.keys(cells)
+            .filter((key) => cells[key]?.value)
+            .sort((a, b) => {
+              const [rowA, colA] = a.split("-").map(Number);
+              const [rowB, colB] = b.split("-").map(Number);
+              return rowB - rowA || colB - colA;
+            })[0];
+          if (lastKey) {
+            [newRow, newCol] = lastKey.split("-").map(Number);
+          } else {
+            newRow = ROWS - 1;
+            newCol = COLS - 1;
+          }
+        } else {
+          newCol = COLS - 1;
+        }
+        handled = true;
+      }
+      // Delete/Backspace to clear cell
+      else if (e.key === "Delete" || e.key === "Backspace") {
+        const key = getCellKey(row, col);
+        setCells((prev) => ({
+          ...prev,
+          [key]: { value: "", isSearchQuery: false },
+        }));
+        handled = true;
+      }
+      // Enter to start editing
+      else if (e.key === "Enter" && !e.shiftKey) {
+        // Cell component will handle editing, just prevent default
+        handled = true;
+      }
+
+      if (handled) {
+        e.preventDefault();
+        if (newRow !== row || newCol !== col) {
+          setSelectedCell(getCellKey(newRow, newCol));
+        }
+      }
+    },
+    [selectedCell, isEditingCell, cells]
+  );
+
+  // Focus grid when mounted
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.focus();
+    }
+  }, []);
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <FormulaBar
@@ -140,7 +243,12 @@ export default function Grid() {
         cellValue={selectedCell ? cells[selectedCell]?.value || "" : ""}
         onValueChange={handleFormulaBarChange}
       />
-      <div className="flex flex-1 overflow-hidden">
+      <div
+        ref={gridRef}
+        className="flex flex-1 overflow-hidden"
+        onKeyDown={handleGridKeyDown}
+        tabIndex={0}
+      >
         <div className="flex-1 overflow-auto bg-white">
           <div className="inline-block min-w-full">
             {/* Column headers */}
@@ -184,6 +292,7 @@ export default function Grid() {
                       isSearchQuery={cellData?.isSearchQuery || false}
                       onChange={handleCellChange}
                       onSelect={handleCellSelect}
+                      onEditingChange={handleEditingChange}
                     />
                   );
                 })}

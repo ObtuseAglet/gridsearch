@@ -11,6 +11,7 @@ interface CellProps {
   isSearchQuery: boolean;
   onChange: (row: number, col: number, value: string) => void;
   onSelect: (row: number, col: number) => void;
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
 export default function Cell({
@@ -22,6 +23,7 @@ export default function Cell({
   isSearchQuery,
   onChange,
   onSelect,
+  onEditingChange,
 }: CellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -44,18 +46,21 @@ export default function Cell({
 
   const handleDoubleClick = () => {
     setIsEditing(true);
+    onEditingChange?.(true);
   };
 
   const handleCellKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       setIsEditing(true);
+      onEditingChange?.(true);
     }
   };
 
   const handleBlur = () => {
     if (isEditing) {
       setIsEditing(false);
+      onEditingChange?.(false);
       if (editValue !== value) {
         onChange(row, col, editValue);
       }
@@ -65,11 +70,13 @@ export default function Cell({
   const handleInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       setIsEditing(false);
+      onEditingChange?.(false);
       if (editValue !== value) {
         onChange(row, col, editValue);
       }
     } else if (e.key === "Escape") {
       setIsEditing(false);
+      onEditingChange?.(false);
       setEditValue(value);
     }
   };
