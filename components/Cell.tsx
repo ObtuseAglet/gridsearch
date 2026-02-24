@@ -5,31 +5,35 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 interface CellProps {
   row: number;
   col: number;
-  value: string;
+  value: string; // Display value
+  rawValue?: string; // Raw value (formula) for editing
   isSelected: boolean;
   isLoading: boolean;
   isSearchQuery: boolean;
   onChange: (row: number, col: number, value: string) => void;
   onSelect: (row: number, col: number) => void;
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
 export default function Cell({
   row,
   col,
   value,
+  rawValue,
   isSelected,
   isLoading,
   isSearchQuery,
   onChange,
   onSelect,
+  onEditingChange,
 }: CellProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
+  const [editValue, setEditValue] = useState(rawValue || value);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setEditValue(value);
-  }, [value]);
+    setEditValue(rawValue || value);
+  }, [rawValue, value]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -44,19 +48,23 @@ export default function Cell({
 
   const handleDoubleClick = () => {
     setIsEditing(true);
+    onEditingChange?.(true);
   };
 
   const handleCellKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       setIsEditing(true);
+      onEditingChange?.(true);
     }
   };
 
   const handleBlur = () => {
     if (isEditing) {
       setIsEditing(false);
-      if (editValue !== value) {
+      onEditingChange?.(false);
+      const originalValue = rawValue || value;
+      if (editValue !== originalValue) {
         onChange(row, col, editValue);
       }
     }
@@ -65,12 +73,15 @@ export default function Cell({
   const handleInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       setIsEditing(false);
-      if (editValue !== value) {
+      onEditingChange?.(false);
+      const originalValue = rawValue || value;
+      if (editValue !== originalValue) {
         onChange(row, col, editValue);
       }
     } else if (e.key === "Escape") {
       setIsEditing(false);
-      setEditValue(value);
+      onEditingChange?.(false);
+      setEditValue(rawValue || value);
     }
   };
 
