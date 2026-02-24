@@ -4,6 +4,7 @@ import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "re
 import Cell from "./Cell";
 import ContentViewer from "./ContentViewer";
 import FormulaBar from "./FormulaBar";
+import { evaluateFormula } from "../lib/formulas/evaluator";
 
 const ROWS = 20;
 const COLS = 10;
@@ -55,26 +56,27 @@ export default function Grid() {
   const handleCellChange = useCallback(
     async (row: number, col: number, value: string) => {
       const key = getCellKey(row, col);
+
+      // Check if this is a formula (starts with =)
+      const isFormula = value.startsWith("=");
+      const isSearchQuery = isFormula && value.toLowerCase().startsWith("=search(") && value.endsWith(")");
+
+      // Store the raw value first
       const newCells = {
         ...cells,
-        [key]: { value, isSearchQuery: false },
+        [key]: { value, isSearchQuery },
       };
       setCells(newCells);
       addToHistory(newCells);
 
-      // Check if this is a search query (starts with =SEARCH or =search)
-      if (value.toLowerCase().startsWith("=search(") && value.endsWith(")")) {
+      // If it's a search query, handle it separately
+      if (isSearchQuery) {
         const query = value
           .slice(8, -1)
           .trim()
           .replace(/^["']|["']$/g, "");
 
         if (query) {
-          setCells((prev) => ({
-            ...prev,
-            [key]: { value, isSearchQuery: true },
-          }));
-
           // Set loading state
           setLoading((prev) => ({ ...prev, [key]: true }));
 
@@ -123,6 +125,28 @@ export default function Grid() {
           }
         }
       }
+      // If it's a formula (but not SEARCH), evaluate it
+      else if (isFormula) {
+        try {
+          const context = { cells: newCells, getCellKey };
+          const result = evaluateFormula(value, context);
+
+          // Update the cell with the evaluated result (but keep the formula as the value)
+          // We'll display the result in the cell, but keep the formula for editing
+          const displayValue = result === null ? "" : String(result);
+
+          // Store both the formula and the computed value
+          setCells((prev) => ({
+            ...prev,
+            [key]: {
+              value, // Keep original formula
+              isSearchQuery: false,
+            },
+          }));
+        } catch (error) {
+          console.error("Formula evaluation error:", error);
+        }
+      }
     },
     [cells, addToHistory]
   );
@@ -134,6 +158,38 @@ export default function Grid() {
   const handleEditingChange = useCallback((isEditing: boolean) => {
     setIsEditingCell(isEditing);
   }, []);
+
+  // Get display value for a cell (evaluates formulas)
+  const getCellDisplayValue = useCallback(
+    (key: string): string => {
+      const cellData = cells[key];
+      if (!cellData || !cellData.value) return "";
+
+      const value = cellData.value;
+
+      // If it's a search query, show the value as-is (URL)
+      if (cellData.isSearchQuery) return value;
+
+      // If it's a formula (but not SEARCH), evaluate and display result
+      if (value.startsWith("=") && !value.toLowerCase().startsWith("=search(")) {
+        try {
+          const context = { cells, getCellKey };
+          const result = evaluateFormula(value, context);
+          // Handle arrays (shouldn't happen in cell display but just in case)
+          if (Array.isArray(result)) {
+            return result.join(", ");
+          }
+          return result === null ? "" : String(result);
+        } catch (error) {
+          return value; // Fallback to showing the formula
+        }
+      }
+
+      // Otherwise, show the raw value
+      return value;
+    },
+    [cells]
+  );
 
   const getColumnLabel = (col: number) => {
     let label = "";
@@ -373,13 +429,16 @@ export default function Grid() {
                   const cellData = cells[key];
                   const isSelected = selectedCell === key;
                   const isLoading = loading[key];
+                  const displayValue = getCellDisplayValue(key);
+                  const rawValue = cellData?.value || "";
 
                   return (
                     <Cell
                       key={key}
                       row={row}
                       col={col}
-                      value={cellData?.value || ""}
+                      value={displayValue}
+                      rawValue={rawValue}
                       isSelected={isSelected}
                       isLoading={isLoading}
                       isSearchQuery={cellData?.isSearchQuery || false}

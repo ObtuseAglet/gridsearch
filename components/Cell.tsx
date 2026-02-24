@@ -5,7 +5,8 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 interface CellProps {
   row: number;
   col: number;
-  value: string;
+  value: string; // Display value
+  rawValue?: string; // Raw value (formula) for editing
   isSelected: boolean;
   isLoading: boolean;
   isSearchQuery: boolean;
@@ -18,6 +19,7 @@ export default function Cell({
   row,
   col,
   value,
+  rawValue,
   isSelected,
   isLoading,
   isSearchQuery,
@@ -26,12 +28,12 @@ export default function Cell({
   onEditingChange,
 }: CellProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
+  const [editValue, setEditValue] = useState(rawValue || value);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setEditValue(value);
-  }, [value]);
+    setEditValue(rawValue || value);
+  }, [rawValue, value]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -61,7 +63,8 @@ export default function Cell({
     if (isEditing) {
       setIsEditing(false);
       onEditingChange?.(false);
-      if (editValue !== value) {
+      const originalValue = rawValue || value;
+      if (editValue !== originalValue) {
         onChange(row, col, editValue);
       }
     }
@@ -71,13 +74,14 @@ export default function Cell({
     if (e.key === "Enter") {
       setIsEditing(false);
       onEditingChange?.(false);
-      if (editValue !== value) {
+      const originalValue = rawValue || value;
+      if (editValue !== originalValue) {
         onChange(row, col, editValue);
       }
     } else if (e.key === "Escape") {
       setIsEditing(false);
       onEditingChange?.(false);
-      setEditValue(value);
+      setEditValue(rawValue || value);
     }
   };
 
