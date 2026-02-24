@@ -1,81 +1,108 @@
+import { isIP } from "node:net";
 import { type NextRequest, NextResponse } from "next/server";
+import { BraveSearchProvider } from "@/lib/search/brave";
+import { DuckSearchProvider } from "@/lib/search/duck";
+import type { SearchProvider } from "@/lib/search/provider";
+import { SearxngSearchProvider } from "@/lib/search/searxng";
 
-// Demo data for various search queries
-const demoResults: Record<string, any> = {
-  nextjs: {
-    url: "https://nextjs.org/docs",
-    title: "Next.js Documentation - The React Framework",
-    content: `Next.js is a React framework that gives you building blocks to create web applications. By framework, we mean Next.js handles the tooling and configuration needed for React, and provides additional structure, features, and optimizations for your application.
+export const runtime = "nodejs";
 
-You can use React to build your UI, then incrementally adopt Next.js features to solve common application requirements such as routing, data fetching, integrations—all while improving the developer and end-user experience.
+/**
+ * In-memory rate limiting store.
+ *
+ * NOTE: This works best in single-instance Node.js deployments. In multi-instance
+ * or serverless environments, each instance has its own store.
+ */
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_CLEANUP_THRESHOLD = 1_000;
 
-Whether you're an individual developer or part of a larger team, Next.js can help you build interactive, dynamic, and fast React applications.
+const providerFactories: Record<string, () => SearchProvider> = {
+  searxng: () => new SearxngSearchProvider(),
+  brave: () => new BraveSearchProvider(),
+  duck: () => new DuckSearchProvider(),
+};
+const providerInstances = new Map<string, SearchProvider>();
+const isValidIp = (value: string) => isIP(value) !== 0;
 
-Main Features:
-• Server-side rendering and static site generation
-• API routes for building backend endpoints
-• Built-in CSS and Sass support
-• Fast refresh for instant feedback
-• Zero config for better developer experience
+const getProvider = (): SearchProvider => {
+  const providerName = process.env.SEARCH_PROVIDER?.toLowerCase() ?? "duck";
+  const providerFactory = providerFactories[providerName];
+  if (!providerFactory) {
+    throw new Error(
+      `Unsupported search provider "${providerName}". Expected "searxng", "brave", or "duck".`
+    );
+  }
 
-The framework is built on top of React and extends it with powerful features like server-side rendering, static site generation, and API routes. This makes it an excellent choice for building production-ready applications.`,
-    images: [
-      "https://nextjs.org/static/blog/next-15/thumbnail.png",
-      "https://nextjs.org/static/twitter-cards/home.jpg",
-    ],
-  },
-  react: {
-    url: "https://react.dev",
-    title: "React - A JavaScript Library for Building User Interfaces",
-    content: `React is a JavaScript library for building user interfaces. It is maintained by Facebook and a community of individual developers and companies.
+  const existingProvider = providerInstances.get(providerName);
+  if (existingProvider) return existingProvider;
 
-React can be used as a base in the development of single-page or mobile applications. However, React is only concerned with state management and rendering that state to the DOM, so creating React applications usually requires the use of additional libraries for routing and other client-side functionality.
+  const provider = providerFactory();
+  providerInstances.set(providerName, provider);
+  return provider;
+};
 
-Key Concepts:
-• Components: Independent, reusable pieces of UI
-• JSX: A syntax extension for JavaScript
-• Props: Arguments passed to components
-• State: Data that changes over time
-• Hooks: Functions that let you use state and other React features
+const getClientIp = (request: NextRequest) => {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part !== "");
+    if (parts.length > 0) {
+      const clientIp = parts[0];
+      if (isValidIp(clientIp)) {
+        return clientIp;
+      }
+    }
+  }
 
-React makes it painless to create interactive UIs. Design simple views for each state in your application, and React will efficiently update and render just the right components when your data changes.
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp && isValidIp(realIp)) {
+    return realIp;
+  }
 
-Build encapsulated components that manage their own state, then compose them to make complex UIs. Since component logic is written in JavaScript instead of templates, you can easily pass rich data through your app and keep state out of the DOM.`,
-    images: [
-      "https://react.dev/images/home/conf2024/cover.svg",
-      "https://react.dev/images/home/react-logo.svg",
-    ],
-  },
-  default: {
-    url: "https://example.com/search-result",
-    title: "Search Results for Your Query",
-    content: `This is a demonstration of the GridSearch application. In a production environment, this would fetch real search results from a search engine API.
+  const requestWithIp = request as NextRequest & { ip?: string | null };
+  if (requestWithIp.ip && isValidIp(requestWithIp.ip)) {
+    return requestWithIp.ip;
+  }
 
-The reader mode feature extracts the main content from web pages, removing ads, navigation, and other distractions. This provides a clean, focused reading experience similar to Safari's Reader View or Firefox's Reader Mode.
+  return "unknown";
+};
 
-Key Features of GridSearch:
-• Spreadsheet-like interface for organizing searches
-• Integrated search functionality using =SEARCH() formula
-• Reader mode content extraction
-• Side panel for viewing detailed content
-• Responsive design for various screen sizes
-• Clean, professional appearance
+const cleanupExpiredRateLimitEntries = (now: number) => {
+  for (const [ip, entry] of rateLimitStore) {
+    if (entry.resetAt < now) {
+      rateLimitStore.delete(ip);
+    }
+  }
+};
 
-The application is built with Next.js, React, and TypeScript, providing a modern and efficient user experience. Tailwind CSS is used for styling, ensuring a consistent and responsive design across all devices.
+const isRateLimited = (ip: string, limitPerMinute: number) => {
+  const now = Date.now();
+  if (rateLimitStore.size > RATE_LIMIT_CLEANUP_THRESHOLD) {
+    cleanupExpiredRateLimitEntries(now);
+  }
 
-You can perform searches by entering =SEARCH("your query") in any cell. The results will be displayed in the cell and detailed content will appear in the side panel when you select the cell.
+  const entry = rateLimitStore.get(ip);
+  if (!entry || entry.resetAt <= now) {
+    rateLimitStore.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
 
-This demo shows how spreadsheet functionality can be combined with web search capabilities to create a powerful information gathering and organization tool.`,
-    images: [
-      "https://via.placeholder.com/800x400/4A90E2/FFFFFF?text=GridSearch+Demo",
-      "https://via.placeholder.com/800x400/50C878/FFFFFF?text=Search+Results",
-    ],
-  },
+  if (entry.count >= limitPerMinute) {
+    return true;
+  }
+
+  entry.count += 1;
+  rateLimitStore.set(ip, entry);
+  return false;
 };
 
 export async function POST(request: NextRequest) {
   try {
-    const { query } = await request.json();
+    const payload = (await request.json()) as { query?: unknown };
+    const query = typeof payload.query === "string" ? payload.query.trim() : "";
 
     if (!query) {
       return NextResponse.json(
@@ -84,29 +111,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Simulate network delay for realistic behavior
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Normalize query for matching
-    const normalizedQuery = query.toLowerCase().trim();
-
-    // Find matching demo result or use default
-    let result = demoResults.default;
-
-    if (
-      normalizedQuery.includes("next") ||
-      normalizedQuery.includes("nextjs")
-    ) {
-      result = demoResults.nextjs;
-    } else if (normalizedQuery.includes("react")) {
-      result = demoResults.react;
+    const rateLimitRpm = Number(process.env.API_RATE_LIMIT_RPM ?? "60");
+    if (Number.isFinite(rateLimitRpm) && rateLimitRpm > 0) {
+      const ip = getClientIp(request);
+      if (isRateLimited(ip, rateLimitRpm)) {
+        return NextResponse.json(
+          { error: "Rate limit exceeded. Please try again later." },
+          { status: 429 }
+        );
+      }
     }
 
+    const provider = getProvider();
+    const result = await provider.search(query);
     return NextResponse.json(result);
   } catch (error) {
     console.error("Search API error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Failed to fetch search results" },
       { status: 500 }
     );
   }

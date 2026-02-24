@@ -72,7 +72,7 @@ npm start
 - **UI Library**: React 18
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS with @tailwindcss/postcss
-- **Content Extraction**: Demo mode with mock data (production would use real APIs)
+- **Content Extraction**: Real web search providers + Readability extraction
 
 ## Project Structure
 
@@ -104,7 +104,7 @@ gridsearch/
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm start` - Start production server
-- `npm run lint` - Run ESLint
+- `npm run lint` - Run Biome checks
 
 ### Key Components
 

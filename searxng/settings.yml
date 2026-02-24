@@ -1,0 +1,12 @@
+use_default_settings: true
+
+server:
+  # WARNING: Development default only. Override with a unique secret key in production.
+  secret_key: "gridsearch-dev-secret-key"
+  limiter: true
+
+search:
+  safe_search: 0
+  formats:
+    - html
+    - json
