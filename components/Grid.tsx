@@ -30,15 +30,37 @@ export default function Grid() {
   }>({});
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
   const [isEditingCell, setIsEditingCell] = useState(false);
+  const [clipboard, setClipboard] = useState<{ [key: string]: CellData } | null>(null);
+  const [clipboardMode, setClipboardMode] = useState<"copy" | "cut" | null>(null);
+  const [history, setHistory] = useState<Array<{ [key: string]: CellData }>>([{}]);
+  const [historyIndex, setHistoryIndex] = useState(0);
   const gridRef = useRef<HTMLDivElement>(null);
+
+  const addToHistory = useCallback((newCells: { [key: string]: CellData }) => {
+    setHistory((prev) => {
+      // Remove any future history if we're not at the end
+      const newHistory = prev.slice(0, historyIndex + 1);
+      // Add new state
+      newHistory.push({ ...newCells });
+      // Keep history limited to 50 states
+      if (newHistory.length > 50) {
+        newHistory.shift();
+        return newHistory;
+      }
+      return newHistory;
+    });
+    setHistoryIndex((prev) => Math.min(prev + 1, 49));
+  }, [historyIndex]);
 
   const handleCellChange = useCallback(
     async (row: number, col: number, value: string) => {
       const key = getCellKey(row, col);
-      setCells((prev) => ({
-        ...prev,
+      const newCells = {
+        ...cells,
         [key]: { value, isSearchQuery: false },
-      }));
+      };
+      setCells(newCells);
+      addToHistory(newCells);
 
       // Check if this is a search query (starts with =SEARCH or =search)
       if (value.toLowerCase().startsWith("=search(") && value.endsWith(")")) {
@@ -102,7 +124,7 @@ export default function Grid() {
         }
       }
     },
-    []
+    [cells, addToHistory]
   );
 
   const handleCellSelect = useCallback((row: number, col: number) => {
@@ -207,10 +229,81 @@ export default function Grid() {
       // Delete/Backspace to clear cell
       else if (e.key === "Delete" || e.key === "Backspace") {
         const key = getCellKey(row, col);
-        setCells((prev) => ({
-          ...prev,
+        const newCells = {
+          ...cells,
           [key]: { value: "", isSearchQuery: false },
-        }));
+        };
+        setCells(newCells);
+        addToHistory(newCells);
+        handled = true;
+      }
+      // Clipboard operations
+      else if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        // Copy
+        const key = getCellKey(row, col);
+        const cellData = cells[key];
+        if (cellData) {
+          setClipboard({ [key]: cellData });
+          setClipboardMode("copy");
+        }
+        handled = true;
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "x") {
+        // Cut
+        const key = getCellKey(row, col);
+        const cellData = cells[key];
+        if (cellData) {
+          setClipboard({ [key]: cellData });
+          setClipboardMode("cut");
+          const newCells = {
+            ...cells,
+            [key]: { value: "", isSearchQuery: false },
+          };
+          setCells(newCells);
+          addToHistory(newCells);
+        }
+        handled = true;
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+        // Paste
+        if (clipboard) {
+          const clipboardKeys = Object.keys(clipboard);
+          if (clipboardKeys.length === 1) {
+            const key = getCellKey(row, col);
+            const sourceKey = clipboardKeys[0];
+            const newCells = {
+              ...cells,
+              [key]: { ...clipboard[sourceKey] },
+            };
+            setCells(newCells);
+            addToHistory(newCells);
+
+            // If it was a cut operation, clear the clipboard
+            if (clipboardMode === "cut") {
+              setClipboard(null);
+              setClipboardMode(null);
+            }
+          }
+        }
+        handled = true;
+      }
+      // Undo/Redo
+      else if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        // Undo
+        if (historyIndex > 0) {
+          const newIndex = historyIndex - 1;
+          setHistoryIndex(newIndex);
+          setCells(history[newIndex]);
+        }
+        handled = true;
+      } else if (
+        ((e.ctrlKey || e.metaKey) && e.key === "y") ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z")
+      ) {
+        // Redo
+        if (historyIndex < history.length - 1) {
+          const newIndex = historyIndex + 1;
+          setHistoryIndex(newIndex);
+          setCells(history[newIndex]);
+        }
         handled = true;
       }
       // Enter to start editing
@@ -226,7 +319,7 @@ export default function Grid() {
         }
       }
     },
-    [selectedCell, isEditingCell, cells]
+    [selectedCell, isEditingCell, cells, clipboard, clipboardMode, history, historyIndex, addToHistory]
   );
 
   // Focus grid when mounted
